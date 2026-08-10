@@ -11,8 +11,25 @@ order_id,product,region,quantity,revenue
 
 SELECT *
 FROM OPENROWSET(
-    BULK 'https://<storage-account>.dfs.core.windows.net/synapse-data/sales.csv',
+    BULK 'https://<storage-account>.dfs.core.windows.net/<container_name>/sales.csv',
     FORMAT = 'CSV',
     PARSER_VERSION = '2.0',
     HEADER_ROW = TRUE
 ) AS sales;
+
+
+-- Analytical Query:
+
+SELECT
+    region,
+    SUM(revenue) AS total_revenue
+FROM OPENROWSET(
+    BULK 'https://synapsedemoaccountt.blob.core.windows.net/synapse-data/sales.csv',
+    FORMAT = 'CSV',
+    PARSER_VERSION = '2.0',
+    HEADER_ROW = TRUE
+) AS sales
+GROUP BY region
+ORDER BY total_revenue DESC;
+
+
