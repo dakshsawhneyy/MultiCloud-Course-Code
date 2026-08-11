@@ -7,3 +7,26 @@ order_id,customer_id,product,region,quantity,revenue,order_date
 5,105,Monitor,North,2,40000,2026-03-01
 6,106,Laptop,West,2,160000,2026-03-15
 
+
+-- Query:
+SELECT  * FROM `project.dataset.table`
+
+
+-- Analyze
+SELECT
+    region,
+    SUM(revenue) AS total_revenue
+FROM `YOUR_PROJECT.ecommerce.sales`
+GROUP BY region
+ORDER BY total_revenue DESC;
+
+
+SELECT
+    product,
+    SUM(quantity) AS units_sold,
+    SUM(revenue) AS revenue
+FROM `YOUR_PROJECT.ecommerce.sales`
+GROUP BY product
+ORDER BY revenue DESC;
+
+
