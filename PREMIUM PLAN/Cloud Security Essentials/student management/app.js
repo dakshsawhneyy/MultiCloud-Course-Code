@@ -26,7 +26,7 @@ async function main() {
     host: secret.host,
     user: secret.username,
     password: secret.password,
-    database: secret.database,
+    database: "studentdb",
     port: secret.port
   });
 
