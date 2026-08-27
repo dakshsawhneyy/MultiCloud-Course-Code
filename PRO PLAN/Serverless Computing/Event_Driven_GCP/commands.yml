@@ -1,0 +1,69 @@
+Goal:
+
+Build this:
+Cloud Storage
+      ↓
+Cloud Function
+      ↓
+Firestore
+
+When students upload:
+sample.txt
+
+a Function automatically creates a Firestore metadata document.
+---
+
+Configure the GCP Project:
+gcloud services enable \
+  cloudfunctions.googleapis.com \
+  cloudbuild.googleapis.com \
+  artifactregistry.googleapis.com \
+  eventarc.googleapis.com \
+  firestore.googleapis.com
+
+
+Create the Cloud Storage Bucket:
+gcloud storage buckets create gs://student-upload-55667788 \
+  --location=us-central1
+---
+
+Create Firestore:
+
+Choose:
+Firestore
+   ↓
+Create database
+
+Use:
+
+Database:
+(default)
+
+Mode:
+Native mode
+
+
+create:
+
+Collection:
+fileMetadata
+
+Each document will contain:
+fileName
+bucket
+objectName
+size
+uploadedAt
+---
+
+Create the Cloud Function:
+
+mkdir gcp-file-workflow
+cd gcp-file-workflow
+
+touch index.js
+touch package.json
+---
+
+Deploy with a Cloud Storage Trigger:
+
