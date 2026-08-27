@@ -1,9 +1,7 @@
 const functions = require('@google-cloud/functions-framework');
 const { Firestore } = require('@google-cloud/firestore');
 
-const firestore = new Firestore({
-    databaseId: 'your-custom-database-name'
-});
+const firestore = new Firestore();
 
 functions.cloudEvent('processUpload', async cloudEvent => {
     const data = cloudEvent.data;
