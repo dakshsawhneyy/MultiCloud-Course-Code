@@ -27,3 +27,17 @@ functions.cloudEvent('processUpload', async cloudEvent => {
 
     console.log('Metadata stored successfully');
 });
+
+
+
+
+// package.json
+{
+  "name": "gcp-file-workflow",
+  "version": "1.0.0",
+  "main": "index.js",
+  "dependencies": {
+    "@google-cloud/functions-framework": "^3.0.0",
+    "@google-cloud/firestore": "^7.0.0"
+  }
+}
