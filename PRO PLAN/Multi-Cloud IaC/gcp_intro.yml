@@ -14,4 +14,7 @@ provider "google" {
 resource "google_storage_bucket" "demo_bucket" {
   name     = "student-terraform-gcp-UNIQUE-ID"
   location = "ASIA-SOUTH1"
+  iam_configuration {
+    uniform_bucket_level_access = true
+  }
 }
