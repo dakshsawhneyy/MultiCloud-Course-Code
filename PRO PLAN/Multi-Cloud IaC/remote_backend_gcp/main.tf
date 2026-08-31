@@ -16,3 +16,12 @@ resource "google_storage_bucket" "demo_bucket" {
   location = "ASIA-SOUTH1"
   uniform_bucket_level_access = true
 }
+
+
+# Backend
+terraform {
+  backend "gcs" {
+    bucket = "your-terraform-state-bucket"
+    prefix = "terraform/state"
+  }
+}
