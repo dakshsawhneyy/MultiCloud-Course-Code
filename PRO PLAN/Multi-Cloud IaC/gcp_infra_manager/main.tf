@@ -8,6 +8,7 @@ terraform {
 
 provider "google" {
   project = var.project_id
+  region = "asia-south1"
 }
 
 variable "project_id" {
@@ -20,7 +21,6 @@ variable "bucket_name" {
 
 resource "google_storage_bucket" "demo_bucket" {
   name     = var.bucket_name
-  location = "US"
-
+  location = "ASIA-SOUTH1"
   uniform_bucket_level_access = true
 }
