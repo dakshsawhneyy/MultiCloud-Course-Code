@@ -1,0 +1,24 @@
+AWSTemplateFormatVersion: '2010-09-09'
+
+Description: Simple CloudFormation S3 Bucket
+
+Resources:
+  DemoBucket:
+    Type: AWS::S3::Bucket
+
+
+
+
+
+
+# Add Versioning:
+AWSTemplateFormatVersion: '2010-09-09'
+
+Description: Simple CloudFormation S3 Bucket
+
+Resources:
+  DemoBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      VersioningConfiguration:
+        Status: Enabled
