@@ -20,5 +20,6 @@ Resources:
   DemoBucket:
     Type: AWS::S3::Bucket
     Properties:
+      BucketName: my-unique-bucket-name-here
       VersioningConfiguration:
         Status: Enabled
