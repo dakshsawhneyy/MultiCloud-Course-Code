@@ -41,4 +41,25 @@ resource "google_compute_instance" "vm" {
   }
 }
 
+# =================================================================
+# AWS DynamoDB Table
+# =================================================================
+resource "aws_dynamodb_table" "easy_dynamodb" {
+  name         = "easy-terraform-table"
+  billing_mode = "PAY_PER_REQUEST" # Serverless/no fixed costs
+  hash_key     = "UserId"
 
+  attribute {
+    name = "UserId"
+    type = "S" # String type
+  }
+}
+
+# =================================================================
+# GCP Firestore / Database Instance
+# =================================================================
+resource "google_firestore_database" "easy_firestore" {
+  name        = "easy-terraform-db"
+  location_id = "nam5" # Multi-region US
+  type        = "FIRESTORE_NATIVE"
+}
