@@ -2,15 +2,13 @@ name: AWS CI/CD Pipeline
 
 on:
   push:
-    branches:
-      - main
 
 jobs:
 
   # -------------------------
   # CI: TEST APPLICATION
   # -------------------------
-  test:
+  ci:
     runs-on: ubuntu-latest
 
     steps:
@@ -33,7 +31,7 @@ jobs:
   # CD: DEPLOY TO AWS EC2
   # -------------------------
   deploy:
-    needs: test
+    needs: ci
     runs-on: ubuntu-latest
 
     steps:
@@ -45,10 +43,13 @@ jobs:
           key: ${{ secrets.EC2_SSH_KEY }}
 
           script: |
-            cd /home/ubuntu/app
+            cd /home/ubuntu/MultiCloud-CICD-Demo
 
             echo "Pulling latest code..."
-            git pull origin main
+            # git pull origin main
+            git fetch origin main
+            git reset --hard origin/main
+            git clean -fd
 
             echo "Installing dependencies..."
             npm install
