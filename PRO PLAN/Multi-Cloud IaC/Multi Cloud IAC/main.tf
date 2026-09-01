@@ -1,15 +1,44 @@
-terraform {
-  required_providers {
+# GCS Bucket
+resource "google_storage_bucket" "demo_bucket" {
+  name                        = "student-terraform-gcp-556677"
+  location                    = "ASIA-SOUTH1"
+  uniform_bucket_level_access = true
+}
 
-    aws = {
-      source  = "hashicorp/aws"
-      version = "~> 5.0"
-    }
+resource "aws_s3_bucket" "demo_bucket" {
+  bucket = "student-terraform-aws-666666"
+} 
 
-    google = {
-      source  = "hashicorp/google"
-      version = "~> 6.0"
-    }
 
+# EC2 Instance
+resource "aws_instance" "web" {
+  ami           = "ami-xxxxxxxxxxxxxxxxx"
+  instance_type = "t3.micro"
+
+  tags = {
+    Name = "terraform-demo-vm"
   }
 }
+
+
+# Compute Engine VM
+resource "google_compute_instance" "vm" {
+  name         = "terraform-demo-vm"
+  machine_type = "e2-micro"
+  zone         = "asia-south1-a"
+
+  boot_disk {
+    initialize_params {
+      image = "ubuntu-os-cloud/ubuntu-2204-lts"
+    }
+  }
+
+  network_interface {
+    network = "default"
+
+    access_config {
+    }
+  }
+}
+
+
