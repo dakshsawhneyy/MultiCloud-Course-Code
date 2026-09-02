@@ -22,24 +22,40 @@ jobs:
       - name: Run tests
         run: npm test
 
+      - name: Run dependency security check
+        run: npm audit
+
+      - name: Run Trivy FS Scan
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs'
+          severity: 'CRITICAL'
+          format: table
+          exit-code: '1'
+
       - name: Build Docker image locally
         run: |
           docker build \
             -t ${{ secrets.DOCKERHUB_USERNAME }}/azure-cicd-demo:${{ github.sha }} \
             -t ${{ secrets.DOCKERHUB_USERNAME }}/azure-cicd-demo:latest .
 
-      # - name: Image Scanning through trivy
-      #   uses: aquasecurity/trivy-action@v0.36.0
-      #   with:
-      #     image-ref: 'demo-app'
-      #     severity: 'CRITICAL'
-      #     exit-code: '1'
+      - name: Image Scanning through trivy
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: 'demo-app'
+          severity: 'CRITICAL'
+          format: table
+          exit-code: '1'
 
       - name: Login to Docker Hub
         uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      # Secrets Scanning  
+      - name: Gitleaks Scan
+        uses: gitleaks/gitleaks-action@v2
 
       - name: Push Docker image
         run: |
