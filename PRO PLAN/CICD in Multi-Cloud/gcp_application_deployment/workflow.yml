@@ -1,0 +1,87 @@
+name: Docker Hub & GCP  VM Pipeline
+
+on:
+  push:
+    branches: [ "main" ]
+
+jobs:
+  build-test-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Run tests
+        run: npm test
+
+      - name: Run dependency security check
+        run: npm audit
+
+      - name: Run Trivy FS Scan
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs'
+          severity: 'CRITICAL'
+          format: table
+          exit-code: '1'
+
+      - name: Build Docker image locally
+        run: |
+          docker build \
+            -t ${{ secrets.DOCKERHUB_USERNAME }}/gcp-cicd-demo:${{ github.sha }} \
+            -t ${{ secrets.DOCKERHUB_USERNAME }}/gcp-cicd-demo:latest .
+
+      - name: Image Scanning through trivy
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: 'demo-app'
+          severity: 'CRITICAL'
+          format: table
+          exit-code: '1'
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      # Secrets Scanning  
+      - name: Gitleaks Scan
+        uses: gitleaks/gitleaks-action@v2
+
+      - name: Push Docker image
+        run: |
+          docker push ${{ secrets.DOCKERHUB_USERNAME }}/gcp-cicd-demo:${{ github.sha }}
+          docker push ${{ secrets.DOCKERHUB_USERNAME }}/gcp-cicd-demo:latest
+
+      - name: Deploy to gcp VM via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.VM_HOST }}
+          username: ${{ secrets.VM_USERNAME }}
+          key: ${{ secrets.VM_SSH_KEY }}
+          script: |
+            # Login to Docker Hub on the gcp VM
+            echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login -u "${{ secrets.DOCKERHUB_USERNAME }}" --password-stdin
+            
+            # Stop and remove the existing container if it exists
+            docker stop gcp-cicd-demo || true
+            docker rm gcp-cicd-demo || true
+            
+            # Pull the fresh image from Docker Hub
+            docker pull ${{ secrets.DOCKERHUB_USERNAME }}/gcp-cicd-demo:latest
+            
+            # Run the new container (adjust host port 80/3000 to match your app)
+            docker run -d \
+              --name gcp-cicd-demo \
+              -p 80:3000 \
+              --restart always \
+              ${{ secrets.DOCKERHUB_USERNAME }}/gcp-cicd-demo:latest
