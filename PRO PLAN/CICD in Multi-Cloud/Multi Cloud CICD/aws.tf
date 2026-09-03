@@ -17,7 +17,7 @@ resource "aws_ecr_repository" "app" {
 resource "aws_instance" "web" {
   ami           = "ami-xxxxxxxxxxxxxxxxx"
   instance_type = "t3.micro"
-
+  key_name      = "demo-key-pair"
   tags = {
     Name = "terraform-demo-vm"
   }
