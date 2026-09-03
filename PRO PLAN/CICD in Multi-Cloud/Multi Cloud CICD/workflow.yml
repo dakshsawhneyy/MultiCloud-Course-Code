@@ -1,0 +1,215 @@
+name: Multi-Cloud CI/CD Pipeline
+
+on:
+  push:
+    branches:
+      - main
+
+env:
+  APP_NAME: multi-cloud-app
+  IMAGE_TAG: ${{ github.sha }}
+
+jobs:
+  infrastructure:
+    name: Provision Infrastructure
+    runs-on: ubuntu-latest
+
+    outputs:
+      ecr_repo_url: ${{ steps.terraform_outputs.outputs.ecr_repo_url }}
+      ec2_public_ip: ${{ steps.terraform_outputs.outputs.ec2_public_ip }}
+      acr_repo_url: ${{ steps.terraform_outputs.outputs.acr_repo_url }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Login to Azure
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+
+      - name: Initialize Terraform
+        working-directory: ./infra
+        run: terraform init -input=false
+
+      - name: Apply Infrastructure
+        working-directory: ./infra
+        run: terraform apply -auto-approve -input=false
+
+      - name: Read Terraform outputs
+        id: terraform_outputs
+        working-directory: ./infra
+        run: |
+          echo "ecr_repo_url=$(terraform output -raw ecr_repo_url)" >> "$GITHUB_OUTPUT"
+          echo "ec2_public_ip=$(terraform output -raw ec2_public_ip)" >> "$GITHUB_OUTPUT"
+          echo "acr_repo_url=$(terraform output -raw acr_repo_url)" >> "$GITHUB_OUTPUT"
+
+
+  build-and-test:
+    name: Build and Test
+    runs-on: ubuntu-latest
+    needs: infrastructure
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run tests
+        run: npm test
+
+      - name: Build Docker image
+        run: |
+          docker build \
+            -t $APP_NAME:$IMAGE_TAG \
+            .
+
+
+  push-images:
+    name: Push Images to Registries
+    runs-on: ubuntu-latest
+    needs:
+      - infrastructure
+      - build-and-test
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Login to Azure
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Login to Amazon ECR
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Login to Azure Container Registry
+        run: |
+          az acr login \
+            --name ${{ secrets.ACR_NAME }}
+
+      - name: Build Docker image
+        run: |
+          docker build \
+            -t $APP_NAME:$IMAGE_TAG \
+            .
+
+      - name: Tag image for Amazon ECR
+        run: |
+          docker tag \
+            $APP_NAME:$IMAGE_TAG \
+            ${{ needs.infrastructure.outputs.ecr_repo_url }}:$IMAGE_TAG
+
+      - name: Tag image for Azure ACR
+        run: |
+          docker tag \
+            $APP_NAME:$IMAGE_TAG \
+            ${{ needs.infrastructure.outputs.acr_repo_url }}/$APP_NAME:$IMAGE_TAG
+
+      - name: Push image to Amazon ECR
+        run: |
+          docker push \
+            ${{ needs.infrastructure.outputs.ecr_repo_url }}:$IMAGE_TAG
+
+      - name: Push image to Azure ACR
+        run: |
+          docker push \
+            ${{ needs.infrastructure.outputs.acr_repo_url }}/$APP_NAME:$IMAGE_TAG
+
+
+  deploy-to-ec2:
+    name: Deploy to AWS EC2
+    runs-on: ubuntu-latest
+    needs:
+      - infrastructure
+      - push-images
+
+    steps:
+      - name: Deploy application
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ needs.infrastructure.outputs.ec2_public_ip }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            ECR_REPO="${{ needs.infrastructure.outputs.ecr_repo_url }}"
+            ECR_REGISTRY=$(echo "$ECR_REPO" | cut -d'/' -f1)
+
+            aws ecr get-login-password \
+              --region "${{ secrets.AWS_REGION }}" \
+            | docker login \
+              --username AWS \
+              --password-stdin \
+              "$ECR_REGISTRY"
+
+            docker pull "$ECR_REPO:${{ github.sha }}"
+
+            docker stop multi-cloud-app || true
+            docker rm multi-cloud-app || true
+
+            docker run -d \
+              --name multi-cloud-app \
+              --restart unless-stopped \
+              -p 80:3000 \
+              "$ECR_REPO:${{ github.sha }}"
+
+
+  deploy-to-azure-vm:
+    name: Deploy to Azure VM
+    runs-on: ubuntu-latest
+    needs:
+      - infrastructure
+      - push-images
+
+    steps:
+      - name: Deploy application
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.AZURE_VM_HOST }}
+          username: ${{ secrets.AZURE_VM_USER }}
+          key: ${{ secrets.AZURE_VM_SSH_KEY }}
+          script: |
+            ACR_REPO="${{ needs.infrastructure.outputs.acr_repo_url }}/multi-cloud-app"
+
+            echo "${{ secrets.ACR_PASSWORD }}" \
+            | docker login \
+              "${{ needs.infrastructure.outputs.acr_repo_url }}" \
+              --username "${{ secrets.ACR_USERNAME }}" \
+              --password-stdin
+
+            docker pull "$ACR_REPO:${{ github.sha }}"
+
+            docker stop multi-cloud-app || true
+            docker rm multi-cloud-app || true
+
+            docker run -d \
+              --name multi-cloud-app \
+              --restart unless-stopped \
+              -p 80:3000 \
+              "$ACR_REPO:${{ github.sha }}"
