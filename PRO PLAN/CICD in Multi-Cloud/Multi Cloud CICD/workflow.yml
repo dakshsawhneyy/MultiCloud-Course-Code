@@ -2,8 +2,6 @@ name: Multi-Cloud CI/CD Pipeline
 
 on:
   push:
-    branches:
-      - main
 
 env:
   APP_NAME: multi-cloud-app
@@ -18,6 +16,7 @@ jobs:
       ecr_repo_url: ${{ steps.terraform_outputs.outputs.ecr_repo_url }}
       ec2_public_ip: ${{ steps.terraform_outputs.outputs.ec2_public_ip }}
       acr_repo_url: ${{ steps.terraform_outputs.outputs.acr_repo_url }}
+      vm_public_ip: ${{ steps.terraform_outputs.outputs.vm_public_ip }}
 
     steps:
       - name: Checkout code
@@ -44,7 +43,7 @@ jobs:
 
       - name: Apply Infrastructure
         working-directory: ./infra
-        run: terraform apply -auto-approve -input=false
+        run: terraform apply -auto-approve
 
       - name: Read Terraform outputs
         id: terraform_outputs
@@ -53,9 +52,9 @@ jobs:
           echo "ecr_repo_url=$(terraform output -raw ecr_repo_url)" >> "$GITHUB_OUTPUT"
           echo "ec2_public_ip=$(terraform output -raw ec2_public_ip)" >> "$GITHUB_OUTPUT"
           echo "acr_repo_url=$(terraform output -raw acr_repo_url)" >> "$GITHUB_OUTPUT"
+          echo "vm_public_ip=$(terraform output -raw vm_public_ip)" >> "$GITHUB_OUTPUT"
 
-
-  build-and-test:
+  test-and-security-gates:
     name: Build and Test
     runs-on: ubuntu-latest
     needs: infrastructure
@@ -76,19 +75,13 @@ jobs:
       - name: Run tests
         run: npm test
 
-      - name: Build Docker image
-        run: |
-          docker build \
-            -t $APP_NAME:$IMAGE_TAG \
-            .
-
-
   push-images:
     name: Push Images to Registries
     runs-on: ubuntu-latest
+
     needs:
       - infrastructure
-      - build-and-test
+      - test-and-security-gates
 
     steps:
       - name: Checkout code
@@ -143,73 +136,94 @@ jobs:
             ${{ needs.infrastructure.outputs.acr_repo_url }}/$APP_NAME:$IMAGE_TAG
 
 
-  deploy-to-ec2:
-    name: Deploy to AWS EC2
-    runs-on: ubuntu-latest
-    needs:
-      - infrastructure
-      - push-images
+deploy-to-ec2:
+  name: Deploy to AWS EC2
+  runs-on: ubuntu-latest
 
-    steps:
-      - name: Deploy application
-        uses: appleboy/ssh-action@v1.2.0
-        with:
-          host: ${{ needs.infrastructure.outputs.ec2_public_ip }}
-          username: ${{ secrets.EC2_USER }}
-          key: ${{ secrets.EC2_SSH_KEY }}
-          script: |
-            ECR_REPO="${{ needs.infrastructure.outputs.ecr_repo_url }}"
-            ECR_REGISTRY=$(echo "$ECR_REPO" | cut -d'/' -f1)
+  needs:
+    - infrastructure
+    - push-images
 
-            aws ecr get-login-password \
-              --region "${{ secrets.AWS_REGION }}" \
-            | docker login \
-              --username AWS \
-              --password-stdin \
-              "$ECR_REGISTRY"
+  steps:
+    - name: Deploy application
+      uses: appleboy/ssh-action@v1.2.0
+      with:
+        host: ${{ needs.infrastructure.outputs.ec2_public_ip }}
+        username: ${{ secrets.EC2_USER }}
+        key: ${{ secrets.EC2_SSH_KEY }}
+        script: |
+          ECR_REPO="${{ needs.infrastructure.outputs.ecr_repo_url }}"
+          ECR_REGISTRY=$(echo "$ECR_REPO" | cut -d'/' -f1)
 
-            docker pull "$ECR_REPO:${{ github.sha }}"
+          if ! command -v docker &> /dev/null; then
+            sudo apt-get update
+            sudo apt-get install -y docker.io
+            sudo systemctl enable docker
+            sudo systemctl start docker
+          fi
 
-            docker stop multi-cloud-app || true
-            docker rm multi-cloud-app || true
+          sudo usermod -aG docker $USER
 
-            docker run -d \
-              --name multi-cloud-app \
-              --restart unless-stopped \
-              -p 80:3000 \
-              "$ECR_REPO:${{ github.sha }}"
+          aws ecr get-login-password \
+            --region "${{ secrets.AWS_REGION }}" \
+          | sudo docker login \
+            --username AWS \
+            --password-stdin \
+            "$ECR_REGISTRY"
+
+          sudo docker pull "$ECR_REPO:${{ github.sha }}"
+
+          sudo docker stop multi-cloud-app || true
+          sudo docker rm multi-cloud-app || true
+
+          sudo docker run -d \
+            --name multi-cloud-app \
+            --restart unless-stopped \
+            -p 80:3000 \
+            "$ECR_REPO:${{ github.sha }}"
 
 
-  deploy-to-azure-vm:
-    name: Deploy to Azure VM
-    runs-on: ubuntu-latest
-    needs:
-      - infrastructure
-      - push-images
+deploy-to-azure-vm:
+  name: Deploy to Azure VM
+  runs-on: ubuntu-latest
 
-    steps:
-      - name: Deploy application
-        uses: appleboy/ssh-action@v1.2.0
-        with:
-          host: ${{ secrets.AZURE_VM_HOST }}
-          username: ${{ secrets.AZURE_VM_USER }}
-          key: ${{ secrets.AZURE_VM_SSH_KEY }}
-          script: |
-            ACR_REPO="${{ needs.infrastructure.outputs.acr_repo_url }}/multi-cloud-app"
+  needs:
+    - infrastructure
+    - push-images
 
-            echo "${{ secrets.ACR_PASSWORD }}" \
-            | docker login \
-              "${{ needs.infrastructure.outputs.acr_repo_url }}" \
-              --username "${{ secrets.ACR_USERNAME }}" \
-              --password-stdin
+  steps:
+    - name: Deploy application
+      uses: appleboy/ssh-action@v1.2.0
+      with:
+        host: ${{ needs.infrastructure.outputs.vm_public_ip }}
+        username: ${{ secrets.AZURE_VM_USER }}
+        key: ${{ secrets.AZURE_VM_SSH_KEY }}
+        script: |
+          ACR_REPO="${{ needs.infrastructure.outputs.acr_repo_url }}/multi-cloud-app"
 
-            docker pull "$ACR_REPO:${{ github.sha }}"
+          if ! command -v docker &> /dev/null; then
+            sudo apt-get update
+            sudo apt-get install -y docker.io
+            sudo systemctl enable docker
+            sudo systemctl start docker
+          fi
 
-            docker stop multi-cloud-app || true
-            docker rm multi-cloud-app || true
+          sudo usermod -aG docker $USER
 
-            docker run -d \
-              --name multi-cloud-app \
-              --restart unless-stopped \
-              -p 80:3000 \
-              "$ACR_REPO:${{ github.sha }}"
+          echo "${{ secrets.ACR_PASSWORD }}" \
+          | sudo docker login \
+            "${{ needs.infrastructure.outputs.acr_repo_url }}" \
+            --username "${{ secrets.ACR_USERNAME }}" \
+            --password-stdin
+
+          sudo docker pull "$ACR_REPO:${{ github.sha }}"
+
+          sudo docker stop multi-cloud-app || true
+          sudo docker rm multi-cloud-app || true
+
+          sudo docker run -d \
+            --name multi-cloud-app \
+            --restart unless-stopped \
+            -p 80:3000 \
+            "$ACR_REPO:${{ github.sha }}"
+
