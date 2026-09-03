@@ -1,3 +1,0 @@
-gcloud artifacts repositories create demo-repository \
---repository-format=docker \
---location=us-central1
