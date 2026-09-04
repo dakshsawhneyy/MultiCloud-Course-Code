@@ -13,6 +13,11 @@ provider "azurerm" {
   features {}
 }
 
+resource "azurerm_resource_group" "demo" {
+  name = "multicloud-demo-rg"
+  location = "Central India"
+}
+
 resource "azurerm_storage_account" "storage" {
   name                     = var.storage_account_name
   resource_group_name      = var.rsg_name
