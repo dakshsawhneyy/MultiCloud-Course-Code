@@ -25,3 +25,13 @@ resource "azurerm_storage_account" "demo" {
   account_tier = "Standard"
   account_replication_type = "LRS"
 }
+
+
+terraform {
+  backend "azurerm" {
+    resource_group_name  = "terraform-state-rg"
+    storage_account_name = "terraformstateUNIQUEID"
+    container_name       = "tfstate"
+    key                  = "terraform.tfstate"
+  }
+}
