@@ -35,31 +35,37 @@ resource "azurerm_network_interface" "main" {
 }
 
 (* Create the Linux VM *)
-resource "azurerm_linux_virtual_machine" "main" {
-  name                = "terraform-demo-vm"
-  resource_group_name = azurerm_resource_group.main.name
-  location            = azurerm_resource_group.main.location
-  size                = "Standard_B1s"
+# Virtual Machine
+resource "azurerm_virtual_machine" "web" {
+  name                  = "terraform-demo-vm"
+  location              = azurerm_resource_group.demo.location
+  resource_group_name   = azurerm_resource_group.demo.name
+  vm_size               = "Standard_B1s"
+  network_interface_ids = [azurerm_network_interface.demo.id] 
 
-  admin_username = "azureuser"
-
-  network_interface_ids = [
-    azurerm_network_interface.main.id
-  ]
-
-  admin_password = "ChangeThisToAStrongPassword123!"
-
-  disable_password_authentication = false
-
-  os_disk {
-    caching              = "ReadWrite"
-    storage_account_type = "Standard_LRS"
+  storage_image_reference {
+    publisher = "Canonical"
+    offer     = "UbuntuServer"
+    sku       = "18.04-LTS"
+    version   = "latest"
   }
 
-  source_image_reference {
-    publisher = "Canonical"
-    offer     = "0001-com-ubuntu-server-jammy"
-    sku       = "22_04-lts-gen2"
-    version   = "latest"
+  storage_os_disk {
+    name              = "myosdisk1"
+    caching           = "ReadWrite"
+    create_option     = "FromImage"
+    managed_disk_type = "Standard_LRS"
+  }
+
+  os_profile {
+    computer_name  = "hostname"
+    admin_username = "azureuser"
+    # 1. Add your password here (use a variable for security)
+    admin_password = "admin123"
+  }
+
+  os_profile_linux_config {
+    # 2. Change this to false to allow password logins
+    disable_password_authentication = false 
   }
 }
