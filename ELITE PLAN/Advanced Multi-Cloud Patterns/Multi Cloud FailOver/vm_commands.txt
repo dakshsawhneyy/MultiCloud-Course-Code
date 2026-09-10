@@ -12,9 +12,9 @@ set -e
 DOCKER_USERNAME="dakshsawhneyy"
 IMAGE_TAG="latest"
 
-PRODUCT_IMAGE="${DOCKER_USERNAME}/product-service:${IMAGE_TAG}"
-ORDER_IMAGE="${DOCKER_USERNAME}/order-service:${IMAGE_TAG}"
-USER_IMAGE="${DOCKER_USERNAME}/user-service:${IMAGE_TAG}"
+PRODUCT_IMAGE="${DOCKER_USERNAME}/multi-cloud_over_failure-product-service:${IMAGE_TAG}"
+ORDER_IMAGE="${DOCKER_USERNAME}/multi-cloud_over_failure-order-service:${IMAGE_TAG}"
+USER_IMAGE="${DOCKER_USERNAME}/multi-cloud_over_failure-user-service:${IMAGE_TAG}"
 
 # ============================================================
 # 1. Update system
