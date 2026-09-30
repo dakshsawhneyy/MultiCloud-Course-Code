@@ -1,0 +1,21 @@
+numpy
+pandas
+scikit-learn
+matplotlib
+
+
+# NumPy
+#   ↓
+# Generate metrics
+
+# Pandas
+#   ↓
+# Organize metrics
+
+# Scikit-learn
+#   ↓
+# Detect anomalies
+
+# Matplotlib
+#   ↓
+# Visualize anomalies
