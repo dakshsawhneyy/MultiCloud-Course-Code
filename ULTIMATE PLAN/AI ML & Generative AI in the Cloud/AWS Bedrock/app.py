@@ -7,7 +7,7 @@ client = boto3.client(
     region_name=REGION
 )
 
-MODEL_ID = "YOUR_SUPPORTED_MODEL_ID"
+MODEL_ID = "amazon.nova-lite-v1:0"
 
 response = client.converse(
     modelId=MODEL_ID,
