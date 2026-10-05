@@ -1,0 +1,40 @@
+import boto3
+
+REGION = "us-east-1"
+
+client = boto3.client(
+    "bedrock-runtime",
+    region_name=REGION
+)
+
+MODEL_ID = "YOUR_SUPPORTED_MODEL_ID"
+
+response = client.converse(
+    modelId=MODEL_ID,
+    system=[
+        {
+            "text": (
+                "You are a helpful DevOps instructor. "
+                "Explain technical concepts simply."
+            )
+        }
+    ],
+    messages=[
+        {
+            "role": "user",
+            "content": [
+                {
+                    "text": "Explain Kubernetes in simple terms."
+                }
+            ]
+        }
+    ],
+    inferenceConfig={
+        "maxTokens": 300,
+        "temperature": 0.3
+    }
+)
+
+answer = response["output"]["message"]["content"][0]["text"]
+
+print(answer)
