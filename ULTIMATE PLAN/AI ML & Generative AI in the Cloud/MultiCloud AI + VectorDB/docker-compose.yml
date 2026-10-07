@@ -32,3 +32,4 @@ CREATE TABLE documents (
     embedding VECTOR(1536)
 );
 
+# SELECT COUNT(*) FROM documents;
