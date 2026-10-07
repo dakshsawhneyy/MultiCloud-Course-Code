@@ -15,4 +15,20 @@ volumes:
   pgdata:
 
 
+# Connect:
 # docker exec -it multi-cloud-rag-db psql -U raguser -d ragdb
+
+# Enable pgvector:
+# CREATE EXTENSION IF NOT EXISTS vector;
+
+# Create table:
+CREATE TABLE documents (
+    id SERIAL PRIMARY KEY,
+    title TEXT NOT NULL,
+    content TEXT NOT NULL,
+    cloud TEXT,
+    service TEXT,
+    document_type TEXT,
+    embedding VECTOR(1536)
+);
+
