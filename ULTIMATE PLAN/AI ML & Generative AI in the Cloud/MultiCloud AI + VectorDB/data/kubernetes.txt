@@ -1,1 +1,3 @@
-
+Kubernetes Deployments manage replicated application Pods.
+A Deployment supports rolling updates and rollback.
+kubectl rollout undo can be used to rollback a deployment.
