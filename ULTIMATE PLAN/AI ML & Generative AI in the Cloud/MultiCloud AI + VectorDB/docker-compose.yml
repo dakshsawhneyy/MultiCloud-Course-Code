@@ -29,7 +29,7 @@ CREATE TABLE documents (
     cloud TEXT,
     service TEXT,
     document_type TEXT,
-    embedding VECTOR(1536)
+    embedding VECTOR(1024)
 );
 
 # SELECT COUNT(*) FROM documents;
