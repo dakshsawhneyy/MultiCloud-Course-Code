@@ -1,0 +1,4 @@
+Amazon EKS is a managed Kubernetes service.
+EKS control plane management is handled by AWS.
+Worker nodes can run using managed node groups.
+Applications can be exposed using Kubernetes Services and AWS load balancing integrations.
