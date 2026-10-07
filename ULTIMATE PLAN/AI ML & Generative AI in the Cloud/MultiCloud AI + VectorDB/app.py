@@ -107,9 +107,9 @@ def search_documents(query, top_k=3):
                 cloud,
                 service,
                 document_type,
-                embedding <=> %s AS distance
+                embedding <=> %s::vector AS distance
             FROM documents
-            ORDER BY embedding <=> %s
+            ORDER BY embedding <=> %s::vector
             LIMIT %s
             """,
             (
